@@ -1,6 +1,6 @@
 # 4-bit Array Multiplier — RTL to GDSII
 
-Team: Kavya (2024102011), Dhanika (2024112002)
+Team: Kavya Veer(2024112002), Dhanika Kothari(2024102011)
 
 ## Setup Commands Log
 
