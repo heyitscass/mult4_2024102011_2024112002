@@ -1,15 +1,15 @@
-`timescale 1ns/1ps
-
 module tb_mult;
 
-    // DUT signals
-    reg        clk;
-    reg        rst_n;
-    reg  [3:0] a;
-    reg  [3:0] b;
-    wire [7:0] p;
+    reg         clk;
+    reg         rst_n;
+    reg  [3:0]  a, b;
+    wire [7:0]  p;
 
-    // Instantiate DUT
+    integer     i, j;
+    integer     vectors;
+    integer     errors;
+    reg  [7:0]  expected;
+
     mult_array dut (
         .clk   (clk),
         .rst_n (rst_n),
@@ -18,65 +18,54 @@ module tb_mult;
         .p     (p)
     );
 
-    // Clock: 10ns period
-    initial clk = 0;
+    // 10 ns clock period
+    initial clk = 1'b0;
     always #5 clk = ~clk;
 
-    // Waveform dump
     initial begin
         $dumpfile("mult.vcd");
         $dumpvars(0, tb_mult);
-    end
 
-    // Variables
-    integer ai, bi;
-    integer errors;
-    reg [7:0] expected;
+        vectors = 0;
+        errors  = 0;
+        a       = 4'd0;
+        b       = 4'd0;
 
-    initial begin
-        // Initialise
-        errors = 0;
-        a      = 0;
-        b      = 0;
-        rst_n  = 0;
+        // Hold reset low for the first 2 clock cycles
+        rst_n = 1'b0;
+        @(posedge clk);
+        @(posedge clk);
+        rst_n = 1'b1;
 
-        // Hold reset for 2 clock cycles
-        @(posedge clk); #1;
-        @(posedge clk); #1;
-        rst_n = 1;
+        // Exhaustive 256-vector test: a = 0..15, b = 0..15
+        for (i = 0; i < 16; i = i + 1) begin
+            for (j = 0; j < 16; j = j + 1) begin
+                // Apply new inputs away from the clock edge (mid-cycle),
+                // so they are unambiguously stable before edge 1 captures
+                // them -- not racing a clock edge that is also firing the
+                // same instant.
+                @(negedge clk);
+                a        = i[3:0];
+                b        = j[3:0];
+                expected = i * j;   // `*` used only here, to build the reference value
 
-        // Apply all 256 combinations
-        for (ai = 0; ai < 16; ai = ai + 1) begin
-            for (bi = 0; bi < 16; bi = bi + 1) begin
+                // 2-cycle latency: edge 1 registers a/b, edge 2 registers p
+                @(posedge clk);
+                @(posedge clk);
+                #1; // let edge 2's register update settle before sampling p
 
-                // Apply inputs
-                a = ai[3:0];
-                b = bi[3:0];
-
-                // Wait 2 clock cycles for latency
-                @(posedge clk); #1;
-                @(posedge clk); #1;
-
-                // Extra cycle in GLS due to unit delay propagation
-                `ifdef FUNCTIONAL
-                @(posedge clk); #1;
-                `endif
-
-                // Check result
-                expected = ai * bi;
+                vectors = vectors + 1;
                 if (p !== expected) begin
-                    $display("MISMATCH: a=%0d b=%0d expected=%0d got=%0d",
-                              ai, bi, expected, p);
                     errors = errors + 1;
+                    $display("MISMATCH: a=%0d b=%0d expected=%0d got=%0d", i, j, expected, p);
                 end
             end
         end
 
-        // Summary line — exact format required
         if (errors == 0)
-            $display("PASS: 256 vectors checked, 0 errors");
+            $display("PASS: %0d vectors checked, %0d errors", vectors, errors);
         else
-            $display("FAIL: 256 vectors checked, %0d errors", errors);
+            $display("FAIL: %0d vectors checked, %0d errors", vectors, errors);
 
         $finish;
     end
