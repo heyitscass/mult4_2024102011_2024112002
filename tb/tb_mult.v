@@ -57,6 +57,11 @@ module tb_mult;
                 @(posedge clk); #1;
                 @(posedge clk); #1;
 
+                // Extra cycle in GLS due to unit delay propagation
+                `ifdef FUNCTIONAL
+                @(posedge clk); #1;
+                `endif
+
                 // Check result
                 expected = ai * bi;
                 if (p !== expected) begin
