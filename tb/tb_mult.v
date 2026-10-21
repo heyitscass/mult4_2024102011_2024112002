@@ -40,10 +40,7 @@ module tb_mult;
         // Exhaustive 256-vector test: a = 0..15, b = 0..15
         for (i = 0; i < 16; i = i + 1) begin
             for (j = 0; j < 16; j = j + 1) begin
-                // Apply new inputs away from the clock edge (mid-cycle),
-                // so they are unambiguously stable before edge 1 captures
-                // them -- not racing a clock edge that is also firing the
-                // same instant.
+                // change inputs on negedge, not on the clock edge itself
                 @(negedge clk);
                 a        = i[3:0];
                 b        = j[3:0];
@@ -52,7 +49,7 @@ module tb_mult;
                 // 2-cycle latency: edge 1 registers a/b, edge 2 registers p
                 @(posedge clk);
                 @(posedge clk);
-                #1; // let edge 2's register update settle before sampling p
+                #1; // settle before sampling p
 
                 vectors = vectors + 1;
                 if (p !== expected) begin
